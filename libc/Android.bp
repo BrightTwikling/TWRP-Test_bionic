@@ -343,13 +343,8 @@ cc_library_static {
         "-Wno-unused-parameter",
         "-include netbsd-compat.h",
         "-Wframe-larger-than=66000",
+        "-DENABLE_RESOLV_EXTERNAL_DNS",
     ],
-
-    product_variables: {
-        enable_resolv_external_dns: {
-            cflags: ["-DENABLE_RESOLV_EXTERNAL_DNS"],
-        },
-    },
 
     local_include_dirs: [
         "dns/include",
