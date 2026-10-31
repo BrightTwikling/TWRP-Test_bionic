@@ -26,15 +26,15 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _PRIVATE_BIONIC_GLOBALS_H
-#define _PRIVATE_BIONIC_GLOBALS_H
+#pragma once
+
+#include <sys/cdefs.h>
 
 #include <inttypes.h>
 #include <link.h>
 #include <platform/bionic/malloc.h>
 #include <pthread.h>
 #include <stdatomic.h>
-#include <sys/cdefs.h>
 
 #include "private/WriteProtected.h"
 #include "private/bionic_allocator.h"
@@ -49,6 +49,9 @@ struct libc_globals {
   uintptr_t heap_pointer_tag;
   _Atomic(bool) decay_time_enabled;
   _Atomic(bool) memtag;
+  int flags;
+
+#define GLOBAL_FLAG_USE_SCUDO 1
 
   // In order to allow a complete switch between dispatch tables without
   // the need for copying each function by function in the structure,
@@ -176,6 +179,4 @@ __LIBC_HIDDEN__ void __libc_init_vdso(libc_globals* globals);
 __LIBC_HIDDEN__ extern void* __libc_sysinfo;
 extern "C" __LIBC_HIDDEN__ void __libc_int0x80();
 __LIBC_HIDDEN__ void __libc_init_sysinfo();
-#endif
-
 #endif

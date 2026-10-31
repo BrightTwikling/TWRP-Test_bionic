@@ -215,14 +215,7 @@ uint32_t SystemProperties::ReadMutablePropertyValue(const prop_info* pi, char* v
 int SystemProperties::Read(const prop_info* pi, char* name, char* value) {
   uint32_t serial = ReadMutablePropertyValue(pi, value);
   if (name != nullptr) {
-    size_t namelen = strlcpy(name, pi->name, PROP_NAME_MAX);
-    if (namelen >= PROP_NAME_MAX) {
-      async_safe_format_log(ANDROID_LOG_ERROR, "libc",
-                            "The property name length for \"%s\" is >= %d;"
-                            " please use __system_property_read_callback"
-                            " to read this property. (the name is truncated to \"%s\")",
-                            pi->name, PROP_NAME_MAX - 1, name);
-    }
+    strlcpy(name, pi->name, PROP_NAME_MAX);
   }
   if (is_read_only(pi->name) && pi->is_long()) {
     async_safe_format_log(
@@ -305,23 +298,27 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   if (have_override) {
     memcpy(override_pa->dirty_backup_area(), override_pi->value, old_len + 1);
   }
-  atomic_thread_fence(memory_order_release);
   serial |= 1;
-  atomic_store_explicit(&pi->serial, serial, memory_order_relaxed);
-  strlcpy(pi->value, value, len + 1);
+  atomic_store_explicit(&pi->serial, serial, memory_order_release);
+  atomic_thread_fence(memory_order_release);  // Order preceding store w.r.t. memcpy().
+  memcpy(pi->value, value, len + 1);
+  // TODO: Eventually replace the above with something like atomic_store_per_byte_memcpy from
+  // wg21.link/p1478 . This is needed for the preceding memcpy and the reader-side copies as well.
+  // In general, memcpy uses near atomic_thread_fence() are suspect.
   if (have_override) {
     atomic_store_explicit(&override_pi->serial, serial, memory_order_relaxed);
-    strlcpy(override_pi->value, value, len + 1);
+    memcpy(override_pi->value, value, len + 1);
   }
   // Now the primary value property area is up-to-date. Let readers know that they should
   // look at the property value instead of the backup area.
-  atomic_thread_fence(memory_order_release);
   int new_serial = (len << 24) | ((serial + 1) & 0xffffff);
-  atomic_store_explicit(&pi->serial, new_serial, memory_order_relaxed);
+  atomic_store_explicit(&pi->serial, new_serial, memory_order_release);
   if (have_override) {
     atomic_store_explicit(&override_pi->serial, new_serial, memory_order_relaxed);
   }
-  __futex_wake(&pi->serial, INT32_MAX);  // Fence by side effect
+  // Implicitly includes a fence to ensure the serial number update becomes visible before
+  // we reuse the backup area the next time.
+  __futex_wake(&pi->serial, INT32_MAX);
   atomic_store_explicit(serial_pa->serial(),
                         atomic_load_explicit(serial_pa->serial(), memory_order_relaxed) + 1,
                         memory_order_release);
@@ -400,7 +397,7 @@ int SystemProperties::Add(const char* name, unsigned int namelen, const char* va
       // before any readers are started. Check that only init or root can write appcompat props.
       CHECK(getpid() == 1 || getuid() == 0);
       atomic_thread_fence(memory_order_release);
-      strlcpy(other_pi->value, value, valuelen + 1);
+      memcpy(other_pi->value, value, valuelen + 1);
     }
   }
 
