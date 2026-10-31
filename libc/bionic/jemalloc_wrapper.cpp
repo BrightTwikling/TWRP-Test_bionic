@@ -38,7 +38,7 @@ __END_DECLS
 
 void* je_pvalloc(size_t bytes) {
   size_t pagesize = getpagesize();
-  size_t size = __builtin_align_up(bytes, pagesize);
+  size_t size = __BIONIC_ALIGN(bytes, pagesize);
   if (size < bytes) {
     return nullptr;
   }

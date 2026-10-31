@@ -100,7 +100,7 @@ constexpr char DIVIDER[] =
     "6 malloc_debug *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\n";
 
 static size_t get_tag_offset() {
-  return __builtin_align_up(sizeof(Header), MINIMUM_ALIGNMENT_BYTES);
+  return __BIONIC_ALIGN(sizeof(Header), MINIMUM_ALIGNMENT_BYTES);
 }
 
 static constexpr const char RECORD_ALLOCS_FILE[] = "/data/local/tmp/record_allocs";
